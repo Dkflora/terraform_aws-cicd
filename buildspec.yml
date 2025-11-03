@@ -7,39 +7,34 @@ env:
 phases:
   pre_build:
     commands:
-      - set -euo pipefail
       - echo "=== PRE-BUILD PHASE ==="
       - echo "Logging in to Amazon ECR..."
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
-      - export REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
-      - COMMIT_HASH=$(echo "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c 1-7)
+      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:=latest}
       - echo "Repository URI: $REPOSITORY_URI"
       - echo "Image tag: $IMAGE_TAG"
-      - echo "Installing YAML validator..."
-      - python3 -m pip install --quiet pyyaml
 
   build:
     commands:
-      - set -euo pipefail
       - echo "=== BUILD PHASE ==="
-      - echo "Building Docker image at $(date '+%Y-%m-%d %H:%M:%S')"
-      - "docker build -t $REPOSITORY_URI:latest --label build-date=$(date -u +%Y-%m-%dT%H:%M:%SZ) ."
+      - echo "Building Docker image..."
+      - docker build -t $REPOSITORY_URI:latest .
       - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
 
   post_build:
     commands:
-      - set -euo pipefail
       - echo "=== POST-BUILD PHASE ==="
       - echo "Pushing Docker images to ECR..."
       - docker push $REPOSITORY_URI:latest
       - docker push $REPOSITORY_URI:$IMAGE_TAG
       - echo "Creating imagedefinitions.json for CodeDeploy..."
-      - printf '[{"name":"dev-app","imageUri":"%s"}]' "$REPOSITORY_URI:latest" > imagedefinitions.json
+      - printf '[{"name":"dev-app","imageUri":"%s"}]' $REPOSITORY_URI:latest > imagedefinitions.json
       - echo "imagedefinitions.json created successfully"
       - echo "=== VALIDATION PHASE ==="
       - echo "1. Checking if appspec.yml exists..."
-      - ls -la appspec.yml || { echo "appspec.yml missing!"; exit 1; }
+      - ls -la appspec.yml
       - echo "2. AppSpec file content preview:"
       - cat appspec.yml
       - echo "3. Validating YAML syntax..."
@@ -47,7 +42,7 @@ phases:
       - echo "4. Checking file encoding..."
       - file appspec.yml
       - echo "5. Listing artifact files..."
-      - ls -la *.yml *.json || echo "No YAML/JSON files found."
+      - ls -la *.yml *.json
       - echo "=== VALIDATION COMPLETE ==="
 
 artifacts:
