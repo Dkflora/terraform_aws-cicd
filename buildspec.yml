@@ -7,23 +7,59 @@ env:
 phases:
   pre_build:
     commands:
+      - set -euo pipefail
+      - echo "=== PRE-BUILD PHASE ==="
       - echo "Logging in to Amazon ECR..."
+
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
-      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
+
+      - export REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
+      - COMMIT_HASH=$(echo "$CODEBUILD_RESOLVED_SOURCE_VERSION" | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
+      - echo "Repository URI: $REPOSITORY_URI"
+      - echo "Image tag: $IMAGE_TAG"
+
+      - echo "Installing YAML validator..."
+      - python3 -m pip install --quiet pyyaml
 
   build:
     commands:
-      - echo "Building Docker image..."
-      - docker build -t $REPOSITORY_URI:latest .
+      - set -euo pipefail
+      - echo "=== BUILD PHASE ==="
+      - echo "Building Docker image at $(date '+%Y-%m-%d %H:%M:%S')"
+      - docker build -t $REPOSITORY_URI:latest --label build-date=$(date -u +%Y-%m-%dT%H:%M:%SZ) .
       - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
 
   post_build:
     commands:
-      - echo "Pushing Docker images..."
+      - set -euo pipefail
+      - echo "=== POST-BUILD PHASE ==="
+      - echo "Pushing Docker images to ECR..."
       - docker push $REPOSITORY_URI:latest
       - docker push $REPOSITORY_URI:$IMAGE_TAG
-      - printf '[{"name":"dev-app","imageUri":"%s"}]' $REPOSITORY_URI:latest > imagedefinitions.json
-      - echo "AppSpec validation passed"
+
+      - echo "Creating imagedefinitions.json for CodeDeploy..."
+      - printf '[{"name":"dev-app","imageUri":"%s"}]' "$REPOSITORY_URI:latest" > imagedefinitions.json
+      - echo "✅ imagedefinitions.json created successfully"
+
+      # === CRITICAL VALIDATION STEPS ===
+      - echo "=== VALIDATION PHASE ==="
+      - echo "1. Checking if appspec.yml exists..."
+      - ls -la appspec.yml || { echo "❌ appspec.yml missing!"; exit 1; }
+
+      - echo "2. AppSpec file content preview:"
+      - cat appspec.yml
+
+      - echo "3. Validating YAML syntax..."
+      - python3 -c "import yaml; yaml.safe_load(open('appspec.yml')); print('✅ YAML syntax is valid')"
+
+      - echo "4. Checking file encoding..."
+      - file appspec.yml
+
+      - echo "5. Listing artifact files..."
+      - ls -la *.yml *.json || echo "⚠️ No YAML/JSON files found."
+
+      - echo "=== VALIDATION COMPLETE ==="
 
 artifacts:
   files:
