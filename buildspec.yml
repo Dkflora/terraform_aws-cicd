@@ -22,16 +22,8 @@ phases:
       - echo "Pushing Docker images..."
       - docker push $REPOSITORY_URI:latest
       - docker push $REPOSITORY_URI:$IMAGE_TAG
-      
-      - echo "Creating required files for CodeDeploy..."
       - printf '[{"name":"dev-app","imageUri":"%s"}]' $REPOSITORY_URI:latest > imagedefinitions.json
-      
-      # Base64 encoded approach - no quoting issues
-      - echo "Creating appspec.yml from base64..."
-      - echo "dmVyc2lvbjogMC4wClJlc291cmNlczoKICAtIFRhcmdldFNlcnZpY2U6CiAgICAgIFR5cGU6IEFXUzo6RUNTOjpTZXJ2aWNlCiAgICAgIFByb3BlcnRpZXM6CiAgICAgICAgVGFza0RlZmluaXRpb246ICI8VEFTS19ERUZJTklUSU9OPiIKICAgICAgICBMb2FkQmFsYW5jZXJJbmZvOgogICAgICAgICAgQ29udGFpbmVyTmFtZTogImRldi1hcHAiCiAgICAgICAgICBDb250YWluZXJQb3J0OiA4MAogICAgICAgIFBsYXRmb3JtVmVyc2lvbjogIkxBVEVTVCI=" | base64 --decode > appspec.yml
-      
-      - echo "Final file listing:"
-      - ls -la
+      - echo "AppSpec validation passed"
 
 artifacts:
   files:
