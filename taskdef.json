@@ -1,5 +1,5 @@
 {
-  "family": "nginx-fargate-task",
+  "family": "dev-app-fargate-task",
   "networkMode": "awsvpc",
   "requiresCompatibilities": ["FARGATE"],
   "cpu": "256",
@@ -8,7 +8,7 @@
   "taskRoleArn": "TASK_ROLE_ARN",
   "containerDefinitions": [
     {
-      "name": "nginx",
+      "name": "dev-app",
       "image": "IMAGE_URI",
       "portMappings": [
         {
