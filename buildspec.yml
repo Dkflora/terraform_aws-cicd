@@ -7,43 +7,22 @@ env:
 phases:
   pre_build:
     commands:
-      - echo "=== PRE-BUILD PHASE ==="
-      - echo "Logging in to Amazon ECR..."
+      - echo "Starting build process..."
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
       - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
-      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
-      - IMAGE_TAG=${COMMIT_HASH:=latest}
-      - echo "Repository URI: $REPOSITORY_URI"
-      - echo "Image tag: $IMAGE_TAG"
 
   build:
     commands:
-      - echo "=== BUILD PHASE ==="
       - echo "Building Docker image..."
       - docker build -t $REPOSITORY_URI:latest .
-      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:latest
 
   post_build:
     commands:
-      - echo "=== POST-BUILD PHASE ==="
-      - echo "Pushing Docker images to ECR..."
+      - echo "Pushing Docker image..."
       - docker push $REPOSITORY_URI:latest
-      - docker push $REPOSITORY_URI:$IMAGE_TAG
-      - echo "Creating imagedefinitions.json for CodeDeploy..."
       - printf '[{"name":"dev-app","imageUri":"%s"}]' $REPOSITORY_URI:latest > imagedefinitions.json
-      - echo "imagedefinitions.json created successfully"
-      - echo "=== VALIDATION PHASE ==="
-      - echo "1. Checking if appspec.yml exists..."
-      - ls -la appspec.yml
-      - echo "2. AppSpec file content preview:"
-      - cat appspec.yml
-      - echo "3. Validating YAML syntax..."
-      - python3 -c "import yaml; yaml.safe_load(open('appspec.yml')); print('YAML syntax is valid')"
-      - echo "4. Checking file encoding..."
-      - file appspec.yml
-      - echo "5. Listing artifact files..."
-      - ls -la *.yml *.json
-      - echo "=== VALIDATION COMPLETE ==="
+      - echo "Build completed"
 
 artifacts:
   files:
