@@ -1,21 +1,41 @@
 version: 0.2
 
+env:
+  variables:
+    ECR_REPOSITORY_NAME: "dev-app"
+
 phases:
   pre_build:
     commands:
-      - echo Logging in to Amazon ECR...
+      - echo "Logging in to Amazon ECR..."
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
+      - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
+
   build:
     commands:
-      - echo Build started on `date`
-      - echo Building the Docker image...          
-      - docker build --platform=linux/amd64  -t $IMAGE_REPO_NAME:$IMAGE_TAG -f DockerfileProd .
-      - docker tag $IMAGE_REPO_NAME:$IMAGE_TAG $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG      
+      - echo "Building Docker image..."
+      - docker build -t $REPOSITORY_URI:latest .
+      - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
+
   post_build:
     commands:
-      - echo Build completed on `date`
-      - echo Pushing the Docker image...
-      - docker push $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG
-      - printf '[{"name":"%s","imageUri":"%s"}]' "$CONTAINER_NAME" "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$IMAGE_REPO_NAME:$IMAGE_TAG" > imagedefinitions.json
+      - echo "Pushing Docker images..."
+      - docker push $REPOSITORY_URI:latest
+      - docker push $REPOSITORY_URI:$IMAGE_TAG
+      
+      - echo "Creating required files for CodeDeploy..."
+      - printf '[{"name":"dev-app","imageUri":"%s"}]' $REPOSITORY_URI:latest > imagedefinitions.json
+      
+      # Base64 encoded approach - no quoting issues
+      - echo "Creating appspec.yml from base64..."
+      - echo "dmVyc2lvbjogMC4wClJlc291cmNlczoKICAtIFRhcmdldFNlcnZpY2U6CiAgICAgIFR5cGU6IEFXUzo6RUNTOjpTZXJ2aWNlCiAgICAgIFByb3BlcnRpZXM6CiAgICAgICAgVGFza0RlZmluaXRpb246ICI8VEFTS19ERUZJTklUSU9OPiIKICAgICAgICBMb2FkQmFsYW5jZXJJbmZvOgogICAgICAgICAgQ29udGFpbmVyTmFtZTogImRldi1hcHAiCiAgICAgICAgICBDb250YWluZXJQb3J0OiA4MAogICAgICAgIFBsYXRmb3JtVmVyc2lvbjogIkxBVEVTVCI=" | base64 --decode > appspec.yml
+      
+      - echo "Final file listing:"
+      - ls -la
+
 artifacts:
-    files: imagedefinitions.json
+  files:
+    - imagedefinitions.json
+    - appspec.yml
+    - taskdef.json
+  discard-paths: yes
