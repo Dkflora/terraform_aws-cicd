@@ -10,6 +10,8 @@ phases:
       - echo "Logging in to Amazon ECR..."
       - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com
       - REPOSITORY_URI=$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$ECR_REPOSITORY_NAME
+      - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
+      - IMAGE_TAG=${COMMIT_HASH:=latest}
 
   build:
     commands:
@@ -23,7 +25,19 @@ phases:
       - docker push $REPOSITORY_URI:latest
       - docker push $REPOSITORY_URI:$IMAGE_TAG
       - printf '[{"name":"dev-app","imageUri":"%s"}]' $REPOSITORY_URI:latest > imagedefinitions.json
-      - echo "Using existing appspec.yml from source"
+      - |
+        cat > appspec.yml << 'EOF'
+        version: 0.0
+        Resources:
+          - TargetService:
+              Type: AWS::ECS::Service
+              Properties:
+                TaskDefinition: "<TASK_DEFINITION>"
+                LoadBalancerInfo:
+                  ContainerName: "dev-app"
+                  ContainerPort: 80
+        EOF
+      - echo "Build completed successfully"
 
 artifacts:
   files:
