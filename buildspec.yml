@@ -24,7 +24,7 @@ phases:
       - set -euo pipefail
       - echo "=== BUILD PHASE ==="
       - echo "Building Docker image at $(date '+%Y-%m-%d %H:%M:%S')"
-      - docker build -t $REPOSITORY_URI:latest --label build-date=$(date -u +%Y-%m-%dT%H:%M:%SZ) .
+      - "docker build -t $REPOSITORY_URI:latest --label build-date=$(date -u +%Y-%m-%dT%H:%M:%SZ) ."
       - docker tag $REPOSITORY_URI:latest $REPOSITORY_URI:$IMAGE_TAG
 
   post_build:
@@ -36,18 +36,18 @@ phases:
       - docker push $REPOSITORY_URI:$IMAGE_TAG
       - echo "Creating imagedefinitions.json for CodeDeploy..."
       - printf '[{"name":"dev-app","imageUri":"%s"}]' "$REPOSITORY_URI:latest" > imagedefinitions.json
-      - echo "✅ imagedefinitions.json created successfully"
+      - echo "imagedefinitions.json created successfully"
       - echo "=== VALIDATION PHASE ==="
       - echo "1. Checking if appspec.yml exists..."
-      - ls -la appspec.yml || { echo "❌ appspec.yml missing!"; exit 1; }
+      - ls -la appspec.yml || { echo "appspec.yml missing!"; exit 1; }
       - echo "2. AppSpec file content preview:"
       - cat appspec.yml
       - echo "3. Validating YAML syntax..."
-      - python3 -c "import yaml; yaml.safe_load(open('appspec.yml')); print('✅ YAML syntax is valid')"
+      - python3 -c "import yaml; yaml.safe_load(open('appspec.yml')); print('YAML syntax is valid')"
       - echo "4. Checking file encoding..."
       - file appspec.yml
       - echo "5. Listing artifact files..."
-      - ls -la *.yml *.json || echo "⚠️ No YAML/JSON files found."
+      - ls -la *.yml *.json || echo "No YAML/JSON files found."
       - echo "=== VALIDATION COMPLETE ==="
 
 artifacts:
@@ -56,4 +56,5 @@ artifacts:
     - appspec.yml
     - taskdef.json
   discard-paths: yes
+
 
