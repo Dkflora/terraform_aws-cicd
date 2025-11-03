@@ -7,4 +7,3 @@ Resources:
         LoadBalancerInfo:
           ContainerName: "dev-app"
           ContainerPort: 80
-        
